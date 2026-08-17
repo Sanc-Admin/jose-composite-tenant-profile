@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc [
+  <!ENTITY nbsp "&#160;">
+]>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     category="info"
+     docName="draft-vicente-jose-composite-tenant-profile-00"
+     ipr="trust200902"
+     submissionType="IETF"
+     xml:lang="en"
+     version="3">
+
+  <front>
+    <title abbrev="JOSE Composite Tenant Profile">Multi-Tenant Profile for JOSE Composite Post-Quantum Signatures</title>
+    <seriesInfo name="Internet-Draft" value="draft-vicente-jose-composite-tenant-profile-00"/>
+
+    <author initials="B." surname="Vicente" fullname="Brian Vicente">
+      <organization>Sanctum SecOps LLC</organization>
+      <address>
+        <postal><city>Pine City</city><region>NY</region><country>United States of America</country></postal>
+        <email>brian@sso-labs.com</email>
+        <uri>https://orcid.org/0009-0006-6395-5308</uri>
+      </address>
+    </author>
+
+    <date year="2026" month="August" day="16"/>
+    <area>Security</area>
+    <workgroup>JOSE</workgroup>
+    <keyword>JOSE</keyword>
+    <keyword>JWT</keyword>
+    <keyword>JWS</keyword>
+    <keyword>post-quantum</keyword>
+    <keyword>composite signatures</keyword>
+    <keyword>multi-tenant</keyword>
+    <keyword>PKI</keyword>
+    <keyword>ML-DSA</keyword>
+
+    <abstract>
+      <t>This document defines a multi-tenant profile for JOSE composite post-quantum signatures. The profile specifies how a JOSE issuer operating in a multi-tenant environment (a SaaS platform signing tokens on behalf of multiple tenants) constructs, identifies, and validates composite signatures combining classical and post-quantum algorithms, with per-tenant key isolation and algorithm policy enforcement.</t>
+      <t>The profile addresses the operational requirements of multi-tenant deployment: tenant-bound key derivation, deterministic composite algorithm identification in the JWS header, and validation rules that prevent cross-tenant signature confusion during the post-quantum transition.</t>
+    </abstract>
+
+    <note title="Source and Archival" removeInRFC="true">
+      <t>
+        Source for this draft is maintained at
+        <eref target="https://github.com/Sanc-Admin/jose-composite-tenant-profile">https://github.com/Sanc-Admin/jose-composite-tenant-profile</eref>.
+        Author ORCID iD:
+        <eref target="https://orcid.org/0009-0006-6395-5308">https://orcid.org/0009-0006-6395-5308</eref>.
+        Reference implementation and JSON evidence: CygnetLib
+        (<eref target="https://github.com/sanctumsecopsmssp/CygnetLib">https://github.com/sanctumsecopsmssp/CygnetLib</eref>).
+      </t>
+    </note>
+
+    <note title="IPR Considerations" removeInRFC="true">
+      <t>
+        Sanctum IP Co (a Delaware corporation, assignee of Sanctum SecOps LLC) holds or
+        intends to file patent or other intellectual property rights covering subject matter described in this
+        document. By posting this Internet-Draft, the author submits to the IETF Trust the rights described
+        in BCP 78 and BCP 79. All intellectual property described in this document is owned by Sanctum IP Co,
+        128 Dry Run Rd, Pine City, NY 14871. Contact: brian@sso-labs.com.
+      </t>
+    </note>
+
+  </front>
+
+  <middle>
+
+    <section anchor="introduction" numbered="true">
+      <name>Introduction</name>
+      <t>
+        JOSE <xref target="RFC7515"/> defines the JSON Web Signature structure used to
+        protect JWTs and other JSON content. Composite post-quantum signatures, combining
+        a classical algorithm (e.g., ECDSA P-256) with a post-quantum algorithm (e.g.,
+        ML-DSA <xref target="FIPS204"/>), provide a transition path: they remain secure
+        if either component remains unbroken. Draft specifications for composite JOSE
+        signatures define the algorithm identifiers and the two-layer or combined
+        signing structure.
+      </t>
+      <t>
+        In a multi-tenant SaaS environment, a single platform issues signed tokens on
+        behalf of many tenants. Each tenant may have distinct key material, distinct
+        algorithm policy, and distinct trust expectations. Naive application of composite
+        signatures in this setting risks cross-tenant confusion: a validator might accept
+        a token signed under tenant A's key as if it were tenant B's, or might apply the
+        wrong algorithm policy to a token. This profile specifies the binding between a
+        composite signature and its tenant context to eliminate these risks.
+      </t>
+
+      <section anchor="motivation" numbered="true">
+        <name>Motivation</name>
+        <t>
+          Multi-tenant token issuance is common in SaaS platforms, identity providers, and
+          API gateways. As these platforms adopt post-quantum signatures, they must do so
+          without weakening the tenant isolation guarantees that classical deployments
+          provide. A dedicated profile ensures that composite signature adoption does not
+          introduce new cross-tenant attack surfaces.
+        </t>
+      </section>
+    </section>
+
+    <section anchor="conventions" numbered="true">
+      <name>Conventions and Definitions</name>
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+        "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+        "OPTIONAL" in this document are to be interpreted as described in
+        BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/> when, and only when, they
+        appear in all capitals as shown here.
+      </t>
+    </section>
+
+    <section anchor="profile" numbered="true">
+      <name>Multi-Tenant Composite Signature Profile</name>
+
+      <section anchor="header" numbered="true">
+        <name>Header Requirements</name>
+        <t>
+          A JWS protected header under this profile MUST include the following header
+          parameters in addition to those required by <xref target="RFC7515"/>:
+        </t>
+        <dl newline="true" spacing="normal">
+          <dt><tt>tenant</tt>:</dt>
+          <dd>A stable, opaque identifier for the tenant on whose behalf the token is
+          signed. Validators MUST bind the tenant identifier to the expected tenant
+          context before accepting the signature.</dd>
+          <dt><tt>kid</tt>:</dt>
+          <dd>The key identifier. Under this profile, <tt>kid</tt> MUST be unique within
+          a tenant's key set; validators MUST NOT treat <tt>kid</tt> as globally unique.
+          Key resolution MUST be scoped by <tt>tenant</tt> first, then <tt>kid</tt>.</dd>
+          <dt><tt>alg</tt>:</dt>
+          <dd>The composite algorithm identifier (e.g.,
+          <tt>ES256P-ML-DSA-65</tt>). The header MUST NOT list the component algorithms
+          separately; the composite identifier is authoritative.</dd>
+        </dl>
+        <t>
+          The <tt>tenant</tt> parameter is the linchpin of multi-tenant isolation. A
+          validator that ignores <tt>tenant</tt> and resolves <tt>kid</tt> globally risks
+          accepting a token from the wrong tenant.
+        </t>
+      </section>
+
+      <section anchor="key-resolution" numbered="true">
+        <name>Key Resolution</name>
+        <t>
+          Key resolution under this profile is a two-step process:
+        </t>
+        <ol spacing="normal">
+          <li>Resolve the tenant's key set using the <tt>tenant</tt> header parameter.
+          The tenant-to-key-set mapping MUST be established out of band and MUST be
+          authenticated.</li>
+          <li>Within the tenant's key set, resolve the <tt>kid</tt> to a specific
+          composite public key. If <tt>kid</tt> is absent or does not match a key in the
+          resolved tenant key set, validation MUST fail.</li>
+        </ol>
+        <t>
+          This two-step resolution prevents the global-<tt>kid</tt> collision attack: an
+          attacker who controls tenant A cannot craft a token with a <tt>kid</tt> matching
+          tenant B's key, because resolution is scoped to the declared tenant first.
+        </t>
+      </section>
+
+      <section anchor="validation" numbered="true">
+        <name>Validation Rules</name>
+        <t>
+          A validator implementing this profile MUST:
+        </t>
+        <ul spacing="normal">
+          <li><t>Reject any JWS whose header omits <tt>tenant</tt>.</t></li>
+          <li><t>Reject any JWS whose <tt>tenant</tt> does not identify a known tenant
+          in the validator's configuration.</t></li>
+          <li><t>Reject any JWS whose <tt>alg</tt> is not an approved composite algorithm
+          per the tenant's configured algorithm policy.</t></li>
+          <li><t>Verify both component signatures of the composite; failure of either
+          component MUST cause overall validation failure.</t></li>
+          <li><t>Reject any JWS whose <tt>tenant</tt> header conflicts with tenant
+          context established elsewhere in the token (e.g., a <tt>iss</tt> claim that
+          implies a different tenant).</t></li>
+        </ul>
+      </section>
+    </section>
+
+    <section anchor="security" numbered="true">
+      <name>Security Considerations</name>
+      <t>
+        The primary threat addressed by this profile is cross-tenant signature confusion,
+        in which a token signed under one tenant's key is accepted as if signed under
+        another's. The two-step key resolution and the mandatory <tt>tenant</tt> header
+        parameter prevent this, provided validators implement the resolution order
+        correctly. A validator that resolves <tt>kid</tt> before <tt>tenant</tt> reintroduces
+        the vulnerability.
+      </t>
+      <t>
+        Composite signatures are only as strong as their combiner. This profile mandates
+        verification of both components but does not redefine combiner semantics; it relies
+        on the composite algorithm specification's combiner. Implementations MUST use the
+        combiner defined by the referenced composite algorithm, not a custom construction.
+      </t>
+      <t>
+        Per-tenant key isolation requires that the platform's key management does not
+        permit one tenant's signing operation to access another tenant's key material. This
+        is an operational requirement outside the scope of the JOSE header but is a
+        precondition for the security of this profile.
+      </t>
+    </section>
+
+    <section anchor="iana" numbered="true">
+      <name>IANA Considerations</name>
+      <t>
+        This document has no IANA actions. The <tt>tenant</tt> header parameter is a
+        private header parameter under the JOSE registry's private-use space. A future
+        revision may request registration of <tt>tenant</tt> in the JSON Web Signature
+        and Encryption Header Parameters registry if standardization is desired.
+      </t>
+    </section>
+
+    <section anchor="acknowledgements" numbered="true">
+      <name>Acknowledgements</name>
+      <t>
+        The author thanks the members of the relevant IETF working groups for their
+        review and feedback. Particular thanks to colleagues at Sanctum SecOps LLC for
+        technical discussion and to the broader IETF community for continued review of
+        post-quantum migration and authorization posture work.
+      </t>
+    </section>
+  </middle>
+
+  <back>
+    <references title="Normative References">
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml"/>
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml"/>
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC7515.xml"/>
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC7517.xml"/>
+    </references>
+
+    <references title="Informative References">
+      <reference anchor="FIPS204">
+        <front><title>Module-Lattice-Based Digital Signature Standard</title>
+        <author><organization>NIST</organization></author>
+        <date year="2024" month="August"/></front>
+        <seriesInfo name="FIPS" value="204"/>
+      </reference>
+    </references>
+  </back>
+
+</rfc>
