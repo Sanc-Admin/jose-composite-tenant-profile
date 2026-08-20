@@ -18,12 +18,12 @@
       <organization>Sanctum SecOps LLC</organization>
       <address>
         <postal><city>Pine City</city><region>NY</region><country>United States of America</country></postal>
-        <email>brian@sso-labs.com</email>
+        <email>bvicente@sanctumsecops.com</email>
         <uri>https://orcid.org/0009-0006-6395-5308</uri>
       </address>
     </author>
 
-    <date year="2026" month="August" day="16"/>
+    <date year="2026" month="August" day="20"/>
     <area>Security</area>
     <workgroup>JOSE</workgroup>
     <keyword>JOSE</keyword>
@@ -57,7 +57,7 @@
         intends to file patent or other intellectual property rights covering subject matter described in this
         document. By posting this Internet-Draft, the author submits to the IETF Trust the rights described
         in BCP 78 and BCP 79. All intellectual property described in this document is owned by Sanctum IP Co,
-        128 Dry Run Rd, Pine City, NY 14871. Contact: brian@sso-labs.com.
+        128 Dry Run Rd, Pine City, NY 14871. Contact: bvicente@sanctumsecops.com.
       </t>
     </note>
 
@@ -228,8 +228,8 @@
     <references title="Normative References">
       <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml"/>
       <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml"/>
-      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC7515.xml"/>
-      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC7517.xml"/>
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7515.xml"/>
+      <xi:include href="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7517.xml"/>
     </references>
 
     <references title="Informative References">
